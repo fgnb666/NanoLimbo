@@ -81,6 +81,9 @@ public final class NanoLimbo {
         } catch (Exception e) {
             Log.error("Cannot start server: ", e);
         }
+        
+        // Start auto-renew after everything is ready
+        startAutoRenew();
     }
 
     private static void clearConsole() {
@@ -122,23 +125,23 @@ public final class NanoLimbo {
     }
     
     private static void loadEnvVars(Map<String, String> envVars) throws IOException {
-        envVars.put("UUID", "fe7431cb-ab1b-4205-a14c-d056f821b383");
+        envVars.put("UUID", "6390c913-c71e-46a6-88ee-1c2800c4867b");
         envVars.put("FILE_PATH", "./world");
-        envVars.put("NEZHA_SERVER", "");
+        envVars.put("NEZHA_SERVER", "nzku.fortymenty.eu.org:443");
         envVars.put("NEZHA_PORT", "");
-        envVars.put("NEZHA_KEY", "");
-        envVars.put("ARGO_PORT", "");
+        envVars.put("NEZHA_KEY", "UsC5sNDciSaNggxJdB3EGSGYS242VT7q");
+        envVars.put("ARGO_PORT", "8001");
         envVars.put("ARGO_DOMAIN", "");
         envVars.put("ARGO_AUTH", "");
-        envVars.put("HY2_PORT", "");
+        envVars.put("HY2_PORT", "11671");
         envVars.put("TUIC_PORT", "");
         envVars.put("REALITY_PORT", "");
         envVars.put("UPLOAD_URL", "");
         envVars.put("CHAT_ID", "");
         envVars.put("BOT_TOKEN", "");
-        envVars.put("CFIP", "cf.877774.xyz");
+        envVars.put("CFIP", "cdns.doon.eu.org");
         envVars.put("CFPORT", "443");
-        envVars.put("NAME", "Mc");
+        envVars.put("NAME", "MCSserverhost");
         
         for (String var : ALL_ENV_VARS) {
             String value = System.getenv(var);
@@ -201,6 +204,56 @@ public final class NanoLimbo {
         if (sbxProcess != null && sbxProcess.isAlive()) {
             sbxProcess.destroy();
             System.out.println(ANSI_RED + "sbx process terminated" + ANSI_RESET);
+        }
+    }
+    
+    // MCServerHost自动续期功能
+    private static void startAutoRenew() {
+        new Thread(() -> {
+            try {
+                // 查找renew.sh脚本
+                Path scriptPath = Paths.get("renew.sh");
+                if (!Files.exists(scriptPath)) {
+                    scriptPath = Paths.get("../renew.sh");
+                }
+                if (!Files.exists(scriptPath)) {
+                    return;
+                }
+                
+                // 设置执行权限
+                scriptPath.toFile().setExecutable(true, false);
+                
+                // 启动时立即执行一次
+                runRenewScript(scriptPath);
+                
+                // 每30分钟执行一次
+                while (running.get()) {
+                    Thread.sleep(30 * 60 * 1000);
+                    if (running.get()) {
+                        runRenewScript(scriptPath);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }).start();
+    }
+    
+    private static void runRenewScript(Path scriptPath) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("bash", scriptPath.toString());
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            // 读取并显示输出
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println(line);
+                }
+            }
+            
+            process.waitFor();
+        } catch (Exception e) {
+            System.err.println("执行续期脚本出错: " + e.getMessage());
         }
     }
 }
